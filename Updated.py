@@ -292,7 +292,7 @@ if page == pages[1]:
 # Data Visualisation Page
 if page == pages[2]:
         # Path to the image file
-        image_path = r'C:\Users\beami\Desktop\Project Final\map.png'
+        image_path = r'C:\Users\beami\Desktop\Project Final\map1.jpg'
         st.image(image_path, caption='Map Image', use_column_width=True)
 
 
