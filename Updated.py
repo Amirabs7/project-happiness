@@ -48,7 +48,7 @@ def load_image_from_path(image_path):
         return None
 
 # File path of the local image
-fallback_image_path = "C:/Users/beami/Desktop/Project Final/fallback_image.jpg"
+fallback_image_path = "fallback_image.jpg"
 
 # Load the image from file path
 image = load_image_from_path(fallback_image_path)
@@ -63,8 +63,8 @@ else:
 
 
 # Sidebar Configuration
-st.sidebar.title("Summary")
-pages = ["Introduction", "Data Exploration", "Data Visualization", "Modelling",  "Conclusion and Insights"]
+st.sidebar.title("Content")
+pages = ["Introduction", "Data Exploration", "Data Visualization", "Modelling",  "Conclusion", "Prediction"]
 page = st.sidebar.radio("Go to", pages)
 st.sidebar.markdown(
     """
@@ -99,6 +99,95 @@ if page == pages[0]:
 
 # Load data
 data = pd.read_csv("merged_df_happy (1).csv")
+
+
+############################################# slightly different preprocessing due to sickness and time restrictions
+# Define a dictionary mapping countries to regions
+merged_df_happy_JB= data
+
+country_to_region = {'Angola': 'Sub-Saharan Africa',
+                     'Belize': 'Latin America and Caribbean',
+                     'Bhutan': 'South Asia',
+                     'Central African Republic': 'Sub-Saharan Africa',
+                     'Congo (Kinshasa)': 'Sub-Saharan Africa',
+                     'Cuba': 'Latin America and Caribbean',
+                     'Djibouti': 'Sub-Saharan Africa',
+                     'Guyana': 'Latin America and Caribbean',
+                     'Oman': 'Middle East and North Africa',
+                     'Qatar': 'Middle East and North Africa',
+                     'Somalia': 'Sub-Saharan Africa',
+                     'Somaliland region': 'Sub-Saharan Africa',
+                     'South Sudan': 'Sub-Saharan Africa',
+                     'Sudan': 'Sub-Saharan Africa',
+                     'Suriname': 'Latin America and Caribbean',
+                     'Syria': 'Middle East and North Africa',
+                     'Trinidad and Tobago': 'Latin America and Caribbean'}
+
+# Iterate over the dataset and fill missing regions based on the dictionary
+for country, region in country_to_region.items():
+  merged_df_happy_JB. loc[merged_df_happy_JB['Country name'] == country, 'Regional indicator'] = region
+
+# Train-Test-Split
+y=merged_df_happy_JB['Life Ladder']
+x=merged_df_happy_JB.drop('Life Ladder',axis=1)
+
+x_train, x_test, y_train, y_test= train_test_split(x,y,test_size=0.2, random_state=42)
+print('Train set', x_train.shape)
+print('Test set', x_test.shape)
+
+#Fill NaN
+
+
+num_col=['Standard error of ladder score', 'upperwhisker', 'lowerwhisker',
+       'Log GDP per capita', 'Social support',
+       'Healthy life expectancy at birth', 'Freedom to make life choices',
+       'Generosity', 'Perceptions of corruption', 'Ladder score in Dystopia',
+       'Explained by: Log GDP per capita', 'Explained by: Social support',
+       'Explained by: Healthy life expectancy',
+       'Explained by: Freedom to make life choices',
+       'Explained by: Generosity', 'Explained by: Perceptions of corruption',
+       'Dystopia + residual', 'Positive affect', 'Negative affect']
+
+for col in num_col:
+    # Fill missing values in x_train with the mean of the group in x_train
+    mean_values = x_train.groupby('Regional indicator')[col].transform('mean')
+    x_train[col] = x_train[col].fillna(mean_values)
+
+    # Fill missing values in x_test with the mean of the group in x_train
+    mean_values_test = x_test['Regional indicator'].map(x_train.groupby('Regional indicator')[col].mean())
+    x_test[col] = x_test[col].fillna(mean_values_test)
+
+
+x_train= x_train.reset_index(drop=True)
+x_test= x_test.reset_index(drop=True)
+y_train= y_train.reset_index(drop=True)
+y_test= y_test.reset_index(drop=True)
+
+
+x_train=pd.get_dummies(x_train)
+x_test=pd.get_dummies(x_test)
+all_train = x_train.columns.tolist()
+all_test = x_test.columns.tolist()
+max_len = max(len(all_train), len(all_test))
+for i in range(max_len):
+    train_col = all_train[i] if i < len(all_train) else ""
+    test_col = all_test[i] if i < len(all_test) else ""
+x_test = x_test.reindex(columns=x_train.columns, fill_value=0)
+columns_to_drop = ['Standard error of ladder score', 'upperwhisker', 'lowerwhisker',
+                   'Ladder score in Dystopia', 'Explained by: Log GDP per capita',
+                   'Explained by: Social support', 'Explained by: Healthy life expectancy',
+                   'Explained by: Freedom to make life choices', 'Explained by: Generosity',
+                   'Explained by: Perceptions of corruption', 'Dystopia + residual',
+                   'Positive affect', 'Negative affect']
+
+x_train_JB = x_train.drop(columns_to_drop, axis=1)
+x_test_JB = x_test.drop(columns_to_drop, axis=1)
+
+y_train_JB= y_train
+y_test_JB= y_test
+
+####################################################################################################
+
 
 
 # Define the list of variables to drop
@@ -202,68 +291,83 @@ if page == pages[1]:
 
 # Data Visualisation Page
 if page == pages[2]:
-    st.header("Data Visualisation")
-    # Filter data for the year 2021
-    df_2021 = data[data['year'] == 2021]
-    # Filter data for the year 2021
-    # # Fill missing values using the regional average
-    df_2021['Life Ladder'] = df_2021.groupby('Regional indicator')['Life Ladder'].transform(lambda x: x.fillna(x.mean()))
-    # Identify countries still missing Life Ladder values
-    missing_countries = df_2021[df_2021['Life Ladder'].isnull()]['Country name'].tolist()
-    # Ensure the correct column names and no remaining NaN values
-    df_2021 = df_2021[['Country name', 'Life Ladder']]
-    # Create a copy of the dataframe to work with
-    df_filled = df_2021.copy()
-    # Set a placeholder value for missing data (choose a value outside the expected range)
-    placeholder_value = -999
-    # Fill NaN values with the placeholder value
-    df_filled['Life Ladder'].fillna(placeholder_value, inplace=True)
-    # Create the map with conditional coloring
-    fig = px.choropleth(
-    df_filled,
-    locations="Country name",
-    locationmode='country names',
-    color="Life Ladder",
-    hover_name="Country name",
-    color_continuous_scale=px.colors.sequential.Plasma,  # Use a predefined colorscale
-    range_color=(df_filled['Life Ladder'].min(), df_filled['Life Ladder'].max()),  # Specify actual data range
-    labels={'Life Ladder': 'Happiness Index'},
-    color_continuous_midpoint=placeholder_value,)  # Ensure the midpoint aligns with the placeholder value)
-    # Update colorscale to map the placeholder_value to gray
-    fig.update_traces(marker_line_color='rgb(8,48,107)',  marker_line_width=1)
-    fig.update_layout(
-    title_text='Happiness around the world in 2021',  # Title above the graph
-    geo=dict(showframe=False, showcoastlines=False, projection_type='equirectangular')
-    )
-    # Streamlit app
-    st.write("This map shows the Happiness Index (Life Ladder) for different countries in the year 2021. \
-             Countries with no data are shown in white.")
-    st.plotly_chart(fig)
-    st.markdown("###### Healthy Life Expectancy at Birth for the period 2005 to 2021")
-    data = data.dropna(subset=['Life Ladder', 'Healthy life expectancy at birth'])
-    df_grouped = data.groupby(['Country name', 'Regional indicator']).agg({
-        'Life Ladder': 'mean',
-        'Healthy life expectancy at birth': 'mean'
-    }).reset_index()
+        # Path to the image file
+        image_path = r'C:\Users\beami\Desktop\Project Final\map.png'
+        st.image(image_path, caption='Map Image', use_column_width=True)
 
-    fig = px.sunburst(df_grouped,
+
+        import matplotlib.pyplot as plt
+        import geopandas as gpd
+        import matplotlib.patches as mpatches
+        import matplotlib.colors as mcolors
+
+
+        world = gpd.read_file(gpd.datasets.get_path('naturalearth_lowres'))
+
+             
+        world['name'] = world['name'].replace({
+    'Dem. Rep. Congo': 'Congo (Kinshasa)',
+    'Congo': 'Congo (Brazzaville)',
+    "Côte d'Ivoire": 'Ivory Coast',
+    'S. Sudan': 'South Sudan',
+    'Somaliland': 'Somaliland region',
+    'Korea': 'South Korea',
+    'Taiwan': 'Taiwan Province of China',
+    'Palestinian': 'Palestinian Territories',
+    'N. Cyprus': 'North Cyprus',
+    'Bosnia and Herz.': 'Bosnia and Herzegovina',
+    'Central African Rep.': 'Central African Republic',
+    'Czechia': 'Czech Republic',
+    'Dominican Rep.': 'Dominican Republic',
+    'Palestine': 'Palestinian Territories',
+    'eSwatini': 'Swaziland',
+    'United States of America': 'United States'})
+
+        df_2021 = data[data['year'] == 2021]
+        norm = mcolors.Normalize(vmin=df_2021['Life Ladder'].min(), vmax=df_2021['Life Ladder'].max())
+        cmap = plt.cm.Greens
+        def get_color(country):
+                if country in df_2021['Country name'].values:
+                  life_ladder_value = df_2021.loc[df_2021['Country name'] == country, 'Life Ladder'].values[0]
+                  return cmap(norm(life_ladder_value))
+                else:
+                 return 'lightgray'
+
+        world['color'] = world['name'].apply(get_color)
+        fig, ax = plt.subplots(1, 1, figsize=(15, 10))
+        world.boundary.plot(ax=ax)
+        world.plot(ax=ax, color=world['color'], edgecolor='black')
+        sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+        sm.set_array([])
+        cbar = fig.colorbar(sm, ax=ax)
+        cbar.set_label('Life Ladder (2021)')
+        plt.title('World Map Colored by Life Ladder (2021)')
+        plt.show()
+             
+        st.markdown("###### Healthy Life Expectancy at Birth for the period 2005 to 2021")
+        data = data.dropna(subset=['Life Ladder', 'Healthy life expectancy at birth'])
+        df_grouped = data.groupby(['Country name', 'Regional indicator']).agg({
+                 'Life Ladder': 'mean',
+                'Healthy life expectancy at birth': 'mean' }).reset_index()
+
+        fig = px.sunburst(df_grouped,
                       path=['Regional indicator', 'Country name'],
                       values='Life Ladder',
                       color='Healthy life expectancy at birth',
                       color_continuous_scale='RdBu',
                       color_continuous_midpoint=np.average(df_grouped['Healthy life expectancy at birth'],
                                                            weights=df_grouped['Life Ladder']))
-    st.plotly_chart(fig)
-    fig.update_layout(title_text='Happiness around the world in 2021')
-    st.write("""
-    The graph below shows the average life ladder score for several countries including the United States, Denmark, Netherlands, Canada, Sweden, Australia, Finland, Switzerland, Norway, New Zealand, Costa Rica, Israel, Venezuela, Austria, and Iceland. The life ladder score is a measure of subjective well-being that ranges from 0 to 10, with higher scores indicating greater happiness. The graph shows that Denmark has the highest average life ladder score over the time period covered by the graph, followed by Finland and Switzerland. The United States ranks tenth.
+        st.plotly_chart(fig)
+        fig.update_layout(title_text='Happiness around the world in 2021')
+        st.write("""
+            The graph below shows the average life ladder score for several countries including the United States, Denmark, Netherlands, Canada, Sweden, Australia, Finland, Switzerland, Norway, New Zealand, Costa Rica, Israel, Venezuela, Austria, and Iceland. The life ladder score is a measure of subjective well-being that ranges from 0 to 10, with higher scores indicating greater happiness. The graph shows that Denmark has the highest average life ladder score over the time period covered by the graph, followed by Finland and Switzerland. The United States ranks tenth.
     """)
 
 
 
-    df = data.dropna(subset=['Life Ladder'])
-    df_top5 = df.groupby('year').apply(lambda x: x.nlargest(5, 'Life Ladder')).reset_index(drop=True)
-    fig = px.line(df_top5,
+        df = data.dropna(subset=['Life Ladder'])
+        df_top5 = df.groupby('year').apply(lambda x: x.nlargest(5, 'Life Ladder')).reset_index(drop=True)
+        fig = px.line(df_top5,
                   x='year',
                   y='Life Ladder',
                   color='Country name',
@@ -271,15 +375,15 @@ if page == pages[2]:
                   hover_name='Country name',
                   labels={'Life Ladder': 'Life Ladder Score', 'year': 'Year'},
                   title='Top 5 Happiest Countries (2005-2021)')
-    st.plotly_chart(fig)
+        st.plotly_chart(fig)
 
-    st.write("""
+        st.write("""
     Given their consistently low scores, Burundi, Central African Republic, South Sudan, and Afghanistan likely remained among the unhappiest throughout the period.
     """)
     
 
-    df_bottom5 = df.groupby('year').apply(lambda x: x.nsmallest(5, 'Life Ladder')).reset_index(drop=True)
-    fig = px.line(df_bottom5,
+        df_bottom5 = df.groupby('year').apply(lambda x: x.nsmallest(5, 'Life Ladder')).reset_index(drop=True)
+        fig = px.line(df_bottom5,
                   x='year',
                   y='Life Ladder',
                   color='Country name',
@@ -287,49 +391,49 @@ if page == pages[2]:
                   hover_name='Country name',
                   labels={'Life Ladder': 'Life Ladder Score', 'year': 'Year'},
                   title='Top 5 Unhappiest Countries (2005-2021)')
-    st.plotly_chart(fig)
+        st.plotly_chart(fig)
     
-    plt.figure(figsize=(10, 6))
-    sns.boxplot(data=data, x='Regional indicator', y='Life Ladder')
-    plt.title('Box Plot of Life Ladder by Regional Indicator')
-    plt.xticks(rotation=45)
-    st.pyplot(plt)
+        plt.figure(figsize=(10, 6))
+        sns.boxplot(data=data, x='Regional indicator', y='Life Ladder')
+        plt.title('Box Plot of Life Ladder by Regional Indicator')
+        plt.xticks(rotation=45)
+        st.pyplot(plt)
 
-    plt.figure(figsize=(8, 6), dpi=100)
-    average_life_ladder_by_region = data.groupby('Regional indicator')['Life Ladder'].mean().sort_values(ascending=False).reset_index()
-    sns.barplot(data=average_life_ladder_by_region, x='Life Ladder', y='Regional indicator')
-    plt.title('Average Life Ladder by Regional Indicator')
-    st.pyplot(plt)
+        plt.figure(figsize=(8, 6), dpi=100)
+        average_life_ladder_by_region = data.groupby('Regional indicator')['Life Ladder'].mean().sort_values(ascending=False).reset_index()
+        sns.barplot(data=average_life_ladder_by_region, x='Life Ladder', y='Regional indicator')
+        plt.title('Average Life Ladder by Regional Indicator')
+        st.pyplot(plt)
 
 
-    plt.figure(figsize=(8, 6))
-    sns.scatterplot(data=data, x='Log GDP per capita', y='Life Ladder')
-    plt.title('Scatter Plot of Life Ladder vs Log GDP per capita')
-    st.pyplot(plt)
+        plt.figure(figsize=(8, 6))
+        sns.scatterplot(data=data, x='Log GDP per capita', y='Life Ladder')
+        plt.title('Scatter Plot of Life Ladder vs Log GDP per capita')
+        st.pyplot(plt)
 
     
 
-    plt.figure(figsize=(8, 6))
-    sns.scatterplot(data=data, x='Generosity', y='Life Ladder', alpha=0.7)
-    plt.title('Scatter Plot: Life Ladder vs Generosity')
-    st.pyplot(plt)
+        plt.figure(figsize=(8, 6))
+        sns.scatterplot(data=data, x='Generosity', y='Life Ladder', alpha=0.7)
+        plt.title('Scatter Plot: Life Ladder vs Generosity')
+        st.pyplot(plt)
 
-    plt.figure(figsize=(10, 8))
-    sns.scatterplot(data=data, x='Freedom to make life choices', y='Life Ladder', alpha=0.7)
-    plt.title('Scatter Plot: Life Ladder vs Freedom to make life choices')
-    st.pyplot(plt)
+        plt.figure(figsize=(10, 8))
+        sns.scatterplot(data=data, x='Freedom to make life choices', y='Life Ladder', alpha=0.7)
+        plt.title('Scatter Plot: Life Ladder vs Freedom to make life choices')
+        st.pyplot(plt)
 
-    plt.figure(figsize=(10, 8))
-    sns.scatterplot(data=data, x='Perceptions of corruption', y='Life Ladder', alpha=0.7)
-    plt.title('Scatter Plot: Life Ladder vs Perceptions of corruption')
-    st.pyplot(plt)
+        plt.figure(figsize=(10, 8))
+        sns.scatterplot(data=data, x='Perceptions of corruption', y='Life Ladder', alpha=0.7)
+        plt.title('Scatter Plot: Life Ladder vs Perceptions of corruption')
+        st.pyplot(plt)
 
-    plt.figure(figsize=(10, 8))
-    correlation_matrix = data[['Life Ladder', 'Log GDP per capita', 'Social support', 'Healthy life expectancy at birth',
+        plt.figure(figsize=(10, 8))
+        correlation_matrix = data[['Life Ladder', 'Log GDP per capita', 'Social support', 'Healthy life expectancy at birth',
                                'Freedom to make life choices', 'Generosity', 'Perceptions of corruption']].corr()
-    sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', fmt=".2f")
-    plt.title('Correlation Heatmap')
-    st.pyplot(plt)
+        sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', fmt=".2f")
+        plt.title('Correlation Heatmap')
+        st.pyplot(plt)
 
  # Modelling Page
 if page == pages[3]:
@@ -341,7 +445,7 @@ if page == pages[3]:
     st.write("")
     st.write("")
 
-    if st.button("Models developped ") :
+    if st.button("Overview ") :
         st.subheader("Models ")
         st.markdown("""
                      
@@ -705,51 +809,151 @@ if page == pages[3]:
     if st.button("Random Forest"):
          from sklearn.ensemble import RandomForestRegressor
          from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
-         y = data['Life Ladder']
-         x = data[['Log GDP per capita', 'Social support', 'Healthy life expectancy at birth',
-          'Freedom to make life choices', 'Generosity', 'Perceptions of corruption']]
-         x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=42)
-         # Train the Random Forest model
-         rf_model = RandomForestRegressor(random_state=42)
-         rf_model.fit(x_train, y_train)
+         #################################################### Train Random Forest model with max_depth=2
+         rf_model_JB = RandomForestRegressor(max_depth=2,n_estimators=100, random_state=42)
+         rf_model_JB.fit(x_train_JB, y_train_JB)
          # Predictions
-         y_train_pred_rf = rf_model.predict(x_train)
-         y_test_pred_rf = rf_model.predict(x_test)
-         # Metrics for Random Forest
-         r2_train_rf = r2_score(y_train, y_train_pred_rf)
-         r2_test_rf = r2_score(y_test, y_test_pred_rf)
-         mae_rf = mean_absolute_error(y_test, y_test_pred_rf)
-         mse_rf = mean_squared_error(y_test, y_test_pred_rf)
-         rmse_rf = np.sqrt(mse_rf)
-         # Plotting the results - Target vs Predictions
+         rf_predictions_test_JB = rf_model_JB.predict(x_test_JB)
+         rf_predictions_train_JB = rf_model_JB.predict(x_train_JB)
+         # Evaluation training set
+         rf_mse_train_JB = mean_squared_error(y_train_JB, rf_predictions_train_JB)
+         rf_rmse_train_JB = np.sqrt(rf_mse_train_JB)  # Calculate RMSE
+         rf_r2_train_JB = r2_score(y_train_JB, rf_predictions_train_JB)
+         rf_mae_train_JB = mean_absolute_error(y_train_JB, rf_predictions_train_JB)
+         # Evaluation test set
+         rf_mse_test_JB = mean_squared_error(y_test_JB, rf_predictions_test_JB)
+         rf_rmse_test_JB = np.sqrt(rf_mse_test_JB)  # Calculate RMSE
+         rf_r2_test_JB = r2_score(y_test_JB, rf_predictions_test_JB)
+         rf_mae_test_JB = mean_absolute_error(y_test_JB, rf_predictions_test_JB)
+         # Font size adjustments
+         base_fontsize = 10
+         new_fontsize = base_fontsize * 2  # Increase by 100%
+         # Calculate the required height to maintain a 3:4 aspect ratio for the combined plot
+         original_plot_width = 8  # Set this to the original width
+         combined_width = original_plot_width * 2  # Since we have two plots side by side
+         combined_height = combined_width * 3 / 4
          st.subheader('Random Forest: Target vs Predictions')
-         fig_rf, ax_rf = plt.subplots()
-         ax_rf.scatter(y_test, y_test_pred_rf, alpha=0.5)
-         ax_rf.plot([y_test.min(), y_test.max()], [y_test.min(), y_test.max()], '--r')
-         ax_rf.set_title('Random Forest: Target vs Predictions')
-         ax_rf.set_xlabel('Actual')
-         ax_rf.set_ylabel('Predicted')
+         # Create a figure with two subplots side by side
+         fig_rf, ax_rf = plt.subplots(1, 2, figsize=(combined_width, combined_height))
+         # Scatter plot for Random Forest predictions on training set without Scaling
+         ax_rf[0].scatter(y_train_JB, rf_predictions_train_JB, color='blue', label='Random Forest Predictions', alpha=0.5)
+         ax_rf[0].plot([min(y_train_JB), max(y_train_JB)], [min(y_train_JB), max(y_train_JB)], color='red', linestyle='--', label='Perfect Predictions')
+         ax_rf[0].set_title('RF: Training Set (max_depth=2)', fontsize=new_fontsize)
+         ax_rf[0].set_xlabel('Actual Life Ladder', fontsize=new_fontsize)
+         ax_rf[0].set_ylabel('Predicted Life Ladder', fontsize=new_fontsize)
+         ax_rf[0].legend(fontsize=new_fontsize)
+         ax_rf[0].grid(True)
+         ax_rf[0].tick_params(axis='both', which='major', labelsize=new_fontsize)
+         # Scatter plot for Random Forest predictions on test set without Scaling
+         ax_rf[1].scatter(y_test_JB, rf_predictions_test_JB, color='blue', label='Random Forest Predictions', alpha=0.5)
+         ax_rf[1].plot([min(y_test_JB), max(y_test_JB)], [min(y_test_JB), max(y_test_JB)], color='red', linestyle='--', label='Perfect Predictions')
+         ax_rf[1].set_title('RF: Testing Set (max_depth=2)', fontsize=new_fontsize)
+         ax_rf[1].set_xlabel('Actual Life Ladder', fontsize=new_fontsize)
+         ax_rf[1].set_ylabel('Predicted Life Ladder', fontsize=new_fontsize)
+         ax_rf[1].legend(fontsize=new_fontsize)
+         ax_rf[1].grid(True)
+         ax_rf[1].tick_params(axis='both', which='major', labelsize=new_fontsize)
+         # Match the axis limits
+         ax_rf[1].set_xlim(ax_rf[0].get_xlim())
+         ax_rf[1].set_ylim(ax_rf[0].get_ylim())
          plt.tight_layout()
+         plt.show()
          st.pyplot(fig_rf)
          # Feature Importance
-         st.subheader('Feature Importance from Random Forest Model')
-         feature_importances_rf = rf_model.feature_importances_
-         fig_feat_rf, ax_feat_rf = plt.subplots(figsize=(10, 6))
-         sns.barplot(x=feature_importances_rf, y=x.columns, ax=ax_feat_rf)
-         ax_feat_rf.set_title('Feature Importances from Random Forest Model')
-         ax_feat_rf.set_xlabel('Importance')
-         ax_feat_rf.set_ylabel('Feature')
-         plt.tight_layout()
-         st.pyplot(fig_feat_rf)
+         # st.subheader('Feature Importance from Random Forest Model')
+         # feature_importances_rf = rf_model_JB.feature_importances_
+         # fig_feat_rf, ax_feat_rf = plt.subplots(figsize=(10, 6))
+         # sns.barplot(x=feature_importances_rf, y=x.columns, ax=ax_feat_rf)
+         # ax_feat_rf.set_title('Feature Importances from Random Forest Model')
+         # ax_feat_rf.set_xlabel('Importance')
+         # ax_feat_rf.set_ylabel('Feature')
+         # plt.tight_layout()
+         # st.pyplot(fig_feat_rf)
          # Conclusion
          st.subheader('Metrics')
-         st.write(f"R² Train: {r2_train_rf:.4f}")
-         st.write(f"R² Test: {r2_test_rf:.4f}")
-         st.write(f"MAE: {mae_rf:.4f}")
-         st.write(f"MSE: {mse_rf:.4f}")
-         st.write(f"RMSE: {rmse_rf:.4f}")
+         st.write(f"R² Train: {rf_r2_train_JB:.4f}")
+         st.write(f"R² Test: {rf_r2_test_JB:.4f}")
+         st.write(f"MAE Train: {rf_mae_train_JB:.4f}")
+         st.write(f"MAE Test: {rf_mae_test_JB:.4f}")
+         st.write(f"MSE Train: {rf_mse_train_JB:.4f}")
+         st.write(f"MSE Test: {rf_mse_test_JB:.4f}")
+         st.write(f"RMSE Train: {rf_rmse_train_JB:.4f}")
+         st.write(f"RMSE Test: {rf_rmse_test_JB:.4f}")
          st.subheader('Conclusion')
-         st.write("Overall, these metrics suggest that the Random Forest model performs well in predicting the Life Ladder score based on the provided features. The R² values indicate that the model explains a significant portion of the variance in both training and test datasets. Additionally, the feature importance plot highlights which features have the most impact on the predictions.")
+         st.write("The plots show a rather low congruene of the model with the red dotted line. The metrics confirm a moderate fit and generalization for the Random Forest Regression Model, suggesting that there is room for improvement in prediction accuracy.")
+
+         ################################################################################ Train Random Forest model with max_depth=7
+         rf_model_JB = RandomForestRegressor(max_depth=7,n_estimators=100, random_state=42)
+         rf_model_JB.fit(x_train_JB, y_train_JB)
+         # Predictions
+         rf_predictions_test_JB = rf_model_JB.predict(x_test_JB)
+         rf_predictions_train_JB = rf_model_JB.predict(x_train_JB)
+         # Evaluation training set
+         rf_mse_train_JB = mean_squared_error(y_train_JB, rf_predictions_train_JB)
+         rf_rmse_train_JB = np.sqrt(rf_mse_train_JB)  # Calculate RMSE
+         rf_r2_train_JB = r2_score(y_train_JB, rf_predictions_train_JB)
+         rf_mae_train_JB = mean_absolute_error(y_train_JB, rf_predictions_train_JB)
+         # Evaluation test set
+         rf_mse_test_JB = mean_squared_error(y_test_JB, rf_predictions_test_JB)
+         rf_rmse_test_JB = np.sqrt(rf_mse_test_JB)  # Calculate RMSE
+         rf_r2_test_JB = r2_score(y_test_JB, rf_predictions_test_JB)
+         rf_mae_test_JB = mean_absolute_error(y_test_JB, rf_predictions_test_JB)
+         # Font size adjustments
+         base_fontsize = 10
+         new_fontsize = base_fontsize * 2  # Increase by 100%
+         # Calculate the required height to maintain a 3:4 aspect ratio for the combined plot
+         original_plot_width = 8  # Set this to the original width
+         combined_width = original_plot_width * 2  # Since we have two plots side by side
+         combined_height = combined_width * 3 / 4
+         st.subheader('Random Forest Adjustment: Target vs Predictions')
+         # Create a figure with two subplots side by side
+         fig_rf, ax_rf = plt.subplots(1, 2, figsize=(combined_width, combined_height))
+         # Scatter plot for Random Forest predictions on training set without Scaling
+         ax_rf[0].scatter(y_train_JB, rf_predictions_train_JB, color='blue', label='Random Forest Predictions', alpha=0.5)
+         ax_rf[0].plot([min(y_train_JB), max(y_train_JB)], [min(y_train_JB), max(y_train_JB)], color='red', linestyle='--', label='Perfect Predictions')
+         ax_rf[0].set_title('RF: Training Set (max_depth=7)', fontsize=new_fontsize)
+         ax_rf[0].set_xlabel('Actual Life Ladder', fontsize=new_fontsize)
+         ax_rf[0].set_ylabel('Predicted Life Ladder', fontsize=new_fontsize)
+         ax_rf[0].legend(fontsize=new_fontsize)
+         ax_rf[0].grid(True)
+         ax_rf[0].tick_params(axis='both', which='major', labelsize=new_fontsize)
+         # Scatter plot for Random Forest predictions on test set without Scaling
+         ax_rf[1].scatter(y_test_JB, rf_predictions_test_JB, color='blue', label='Random Forest Predictions', alpha=0.5)
+         ax_rf[1].plot([min(y_test_JB), max(y_test_JB)], [min(y_test_JB), max(y_test_JB)], color='red', linestyle='--', label='Perfect Predictions')
+         ax_rf[1].set_title('RF: Testing Set (max_depth=7)', fontsize=new_fontsize)
+         ax_rf[1].set_xlabel('Actual Life Ladder', fontsize=new_fontsize)
+         ax_rf[1].set_ylabel('Predicted Life Ladder', fontsize=new_fontsize)
+         ax_rf[1].legend(fontsize=new_fontsize)
+         ax_rf[1].grid(True)
+         ax_rf[1].tick_params(axis='both', which='major', labelsize=new_fontsize)
+         # Match the axis limits
+         ax_rf[1].set_xlim(ax_rf[0].get_xlim())
+         ax_rf[1].set_ylim(ax_rf[0].get_ylim())
+         plt.tight_layout()
+         plt.show()
+         st.pyplot(fig_rf)
+         # Feature Importance
+         # st.subheader('Feature Importance from Random Forest Model')
+         # feature_importances_rf = rf_model_JB.feature_importances_
+         # fig_feat_rf, ax_feat_rf = plt.subplots(figsize=(10, 6))
+         # sns.barplot(x=feature_importances_rf, y=x.columns, ax=ax_feat_rf)
+         # ax_feat_rf.set_title('Feature Importances from Random Forest Model')
+         # ax_feat_rf.set_xlabel('Importance')
+         # ax_feat_rf.set_ylabel('Feature')
+         # plt.tight_layout()
+         # st.pyplot(fig_feat_rf)
+         # Conclusion
+         st.subheader('Metrics')
+         st.write(f"R² Train: {rf_r2_train_JB:.4f}")
+         st.write(f"R² Test: {rf_r2_test_JB:.4f}")
+         st.write(f"MAE Train: {rf_mae_train_JB:.4f}")
+         st.write(f"MAE Test: {rf_mae_test_JB:.4f}")
+         st.write(f"MSE Train: {rf_mse_train_JB:.4f}")
+         st.write(f"MSE Test: {rf_mse_test_JB:.4f}")
+         st.write(f"RMSE Train: {rf_rmse_train_JB:.4f}")
+         st.write(f"RMSE Test: {rf_rmse_test_JB:.4f}")
+         st.subheader('Conclusion')
+         st.write("After adjusting the tree depth, the model performs much better. The metrics suggest that the Random Forest model performs well in predicting the Life Ladder score based on the provided features. The R² values indicate that the model explains a significant portion of the variance in both training and test datasets. Additionally, the feature importance plot highlights which features have the most impact on the predictions.")
 
 
 
@@ -764,88 +968,122 @@ if page == pages[3]:
     if st.button("Ridge"):
         from sklearn.linear_model import Ridge
         from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
-        # Assuming 'data' is your dataset
-        y = data['Life Ladder']
-        x = data[['Log GDP per capita', 'Social support', 'Healthy life expectancy at birth',
-          'Freedom to make life choices', 'Generosity', 'Perceptions of corruption']]
-        # Split data into train/test sets
-        x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=42)
-        # Train the Ridge model
-        ridge_model = Ridge(alpha=1.0)  # You can adjust the alpha (regularization strength) as needed
-        ridge_model.fit(x_train, y_train)
+        ridge_model_JB = Ridge(alpha=1.0, random_state=42)
+        ridge_model_JB.fit(x_train_JB, y_train_JB)
         # Predictions
-        y_train_pred_ridge = ridge_model.predict(x_train)
-        y_test_pred_ridge = ridge_model.predict(x_test)
-        # Metrics for Ridge
-        r2_train_ridge = r2_score(y_train, y_train_pred_ridge)
-        r2_test_ridge = r2_score(y_test, y_test_pred_ridge)
-        mae_ridge = mean_absolute_error(y_test, y_test_pred_ridge)
-        mse_ridge = mean_squared_error(y_test, y_test_pred_ridge)
-        rmse_ridge = np.sqrt(mse_ridge)
-        # Plotting the results - Target vs Predictions
-        st.subheader('Ridge Regression: Target vs Predictions')
-        fig_ridge, ax_ridge = plt.subplots()
-        ax_ridge.scatter(y_test, y_test_pred_ridge, alpha=0.5)
-        ax_ridge.plot([y_test.min(), y_test.max()], [y_test.min(), y_test.max()], '--r')
-        ax_ridge.set_title('Ridge Regression: Target vs Predictions')
-        ax_ridge.set_xlabel('Actual')
-        ax_ridge.set_ylabel('Predicted')
+        ridge_predictions_test_JB = ridge_model_JB.predict(x_test_JB)
+        ridge_predictions_train_JB = ridge_model_JB.predict(x_train_JB)
+        # Evaluation training set
+        ridge_mse_train_JB = mean_squared_error(y_train_JB, ridge_predictions_train_JB)
+        ridge_rmse_train_JB = np.sqrt(ridge_mse_train_JB)  # Calculate RMSE
+        ridge_r2_train_JB = r2_score(y_train_JB, ridge_predictions_train_JB)
+        ridge_mae_train_JB = mean_absolute_error(y_train_JB, ridge_predictions_train_JB)
+        # Evaluation test set
+        ridge_mse_test_JB = mean_squared_error(y_test_JB, ridge_predictions_test_JB)
+        ridge_rmse_test_JB = np.sqrt(ridge_mse_test_JB)  # Calculate RMSE
+        ridge_r2_test_JB = r2_score(y_test_JB, ridge_predictions_test_JB)
+        ridge_mae_test_JB = mean_absolute_error(y_test_JB, ridge_predictions_test_JB)
+        # Font size adjustments
+        base_fontsize = 10
+        new_fontsize = base_fontsize * 2  # Increase by 100%
+        # Calculate the required height to maintain a 3:4 aspect ratio for the combined plot
+        original_plot_width = 8  # Set this to the original width
+        combined_width = original_plot_width * 2  # Since we have two plots side by side
+        combined_height = combined_width * 3 / 4
+        st.subheader('Ridge: Target vs Predictions')
+        # Create a figure with two subplots side by side
+        fig_ridge, ax_ridge = plt.subplots(1, 2, figsize=(combined_width, combined_height))
+        # Scatter plot for Ridge predictions on training set without Scaling
+        ax_ridge[0].scatter(y_train_JB, ridge_predictions_train_JB, color='blue', label='Ridge Predictions', alpha=0.5)
+        ax_ridge[0].plot([min(y_train_JB), max(y_train_JB)], [min(y_train_JB), max(y_train_JB)], color='red', linestyle='--', label='Peridgeect Predictions')
+        ax_ridge[0].set_title('Ridge: Training Set (alpha=1.0)', fontsize=new_fontsize)
+        ax_ridge[0].set_xlabel('Actual Life Ladder', fontsize=new_fontsize)
+        ax_ridge[0].set_ylabel('Predicted Life Ladder', fontsize=new_fontsize)
+        ax_ridge[0].legend(fontsize=new_fontsize)
+        ax_ridge[0].grid(True)
+        ax_ridge[0].tick_params(axis='both', which='major', labelsize=new_fontsize)
+        # Scatter plot for Ridge predictions on test set without Scaling
+        ax_ridge[1].scatter(y_test_JB, ridge_predictions_test_JB, color='blue', label='Ridge Predictions', alpha=0.5)
+        ax_ridge[1].plot([min(y_test_JB), max(y_test_JB)], [min(y_test_JB), max(y_test_JB)], color='red', linestyle='--', label='Perfect Predictions')
+        ax_ridge[1].set_title('Ridge: Testing Set (alpha=1.0)', fontsize=new_fontsize)
+        ax_ridge[1].set_xlabel('Actual Life Ladder', fontsize=new_fontsize)
+        ax_ridge[1].set_ylabel('Predicted Life Ladder', fontsize=new_fontsize)
+        ax_ridge[1].legend(fontsize=new_fontsize)
+        ax_ridge[1].grid(True)
+        ax_ridge[1].tick_params(axis='both', which='major', labelsize=new_fontsize)
+        # Match the axis limits
+        ax_ridge[1].set_xlim(ax_ridge[0].get_xlim())
+        ax_ridge[1].set_ylim(ax_ridge[0].get_ylim())
         plt.tight_layout()
+        plt.show()
         st.pyplot(fig_ridge)
-        # Feature Importance (Ridge doesn't have feature_importances_, so we skip this section)
-        # # Conclusion
+        # Feature Importance
+        # st.subheader('Feature Importance from Random Forest Model')
+        # feature_importances_ridge = ridge_model_JB.feature_importances_
+        # fig_feat_ridge, ax_feat_ridge = plt.subplots(figsize=(10, 6))
+        # sns.barplot(x=feature_importances_ridge, y=x.columns, ax=ax_feat_ridge)
+        # ax_feat_ridge.set_title('Feature Importances from Ridge')
+        # ax_feat_ridge.set_xlabel('Importance')
+        # ax_feat_ridge.set_ylabel('Feature')
+        # plt.tight_layout()
+        # st.pyplot(fig_feat_ridge)
+        # Conclusion
         st.subheader('Metrics')
-        st.write(f"R² Train: {r2_train_ridge:.4f}")
-        st.write(f"R² Test: {r2_test_ridge:.4f}")
-        st.write(f"MAE: {mae_ridge:.4f}")
-        st.write(f"MSE: {mse_ridge:.4f}")
-        st.write(f"RMSE: {rmse_ridge:.4f}")
+        st.write(f"R² Train: {ridge_r2_train_JB:.4f}")
+        st.write(f"R² Test: {ridge_r2_test_JB:.4f}")
+        st.write(f"MAE Train: {ridge_mae_train_JB:.4f}")
+        st.write(f"MAE Test: {ridge_mae_test_JB:.4f}")
+        st.write(f"MSE Train: {ridge_mse_train_JB:.4f}")
+        st.write(f"MSE Test: {ridge_mse_test_JB:.4f}")
+        st.write(f"RMSE Train: {ridge_rmse_train_JB:.4f}")
+        st.write(f"RMSE Test: {ridge_rmse_test_JB:.4f}")
         st.subheader('Conclusion')
         st.write("Overall, these metrics suggest that the Ridge regression model performs reasonably well in predicting the Life Ladder score based on the provided features. The R² values indicate that the model explains a significant portion of the variance in both training and test datasets.")
-
-  
-
+    
+if page == pages[4]:
     # Function to display the conclusion and table
     def display_conclusion_and_table():
         data = {
-        "Model Name": ["Linear Regression", "Decision Tree", "Gradient Boosting", "LassoCV", "Random Forest", "Ridge"],
-        "Parameters": ["Default", "MaxDepth=7", "MaxDepth=7", "Alpha = 1", "MaxDepth=7", "Alpha=1"],
-        "R2 Train": [0.7694, 0.8342, 0.9878, 0.7423, 0.9192, 0.9029],
-        "R2 Test": [0.7328, 0.765, 0.850765, 0.7328, 0.8533, 0.8647],
-        "MAE Train": [0.445, 0.3523, None, None, 0.2441, 0.2627],
-        "MAE Test": [0.445, 0.4196, 0.3261, 0.4728, 0.327, 0.3048],
-        "MSE Train": [0.3344, 0.2044, None, None, 0.0996, 0.1197],
-        "MSE Test": [0.3344, 0.2935, 0.186756, 0.3685, 0.1836, 0.1693],
-        "RMSE Train": [0.5782, 0.4521, None, None, 0.3155, 0.346],
-        "RMSE Test": [0.5782, 0.5417, 0.432153, 0.607, 0.4285, 0.4115]
-    }
+            "Model Name": ["Linear Regression", "Decision Tree", "Gradient Boosting", "LassoCV", "Random Forest", "Ridge"],
+            "Parameters": ["Default", "MaxDepth=7", "MaxDepth=7", "Alpha = 1", "MaxDepth=7", "Alpha=1"],
+            "R2 Train": [0.7694, 0.8342, 0.9878, 0.7423, 0.9192, 0.9029],
+            "R2 Test": [0.7328, 0.765, 0.850765, 0.7328, 0.8533, 0.8647],
+            "MAE Train": [0.445, 0.3523, 0.0917316, 0.44451, 0.2441, 0.2627],
+            "MAE Test": [0.445, 0.4196, 0.3261, 0.4728, 0.327, 0.3048],
+            "MSE Train": [0.3344, 0.2044, 0.0015003, 0.317628, 0.0996, 0.1197],
+            "MSE Test": [0.3344, 0.2935, 0.186756, 0.3685, 0.1836, 0.1693],
+            "RMSE Train": [0.5782, 0.4521, 0.122488, 0.563585, 0.3155, 0.346],
+            "RMSE Test": [0.5782, 0.5417, 0.432153, 0.607, 0.4285, 0.4115]
+        }
+        
         # Convert the data to DataFrame
         df = pd.DataFrame(data)
+        
         # Adjust the index to start from 1
         df.index = pd.RangeIndex(start=1, stop=len(df) + 1, step=1)
-        # Display the conclusion
-        st.write("**Conclusion:**")
-        st.write("Considering the data in the comparative chart above, we can observe that for the test set the **Ridge Model** created the best result throughout all metrics of all models:")
-        st.write("It accurately explained 86.47% of the variance of the test set and also minimizes the error metrics to 0.4114 RMSE and 0.3048 MAE.")
-        st.write("This indicates that the Ridge model performs the best among the considered models.")
+        
         # Filter out None values which are causing empty rows
         df_filtered = df.dropna(how='all')
-        # Manually format Ridge model metrics to be bold
-        ridge_idx = df_filtered[df_filtered['Model Name'] == 'Ridge'].index
-        styled_df = df_filtered.style.applymap(
-            lambda x: 'font-weight: bold' if df_filtered.loc[ridge_idx, :].isin([x]).any().any() else '',
-        subset=pd.IndexSlice[ridge_idx, :]
-    )
+        
+        # Highlight the Ridge model row
+        def highlight_ridge_row(row):
+            return ['background-color: cyan' if row['Model Name'] == 'Ridge' else '' for _ in row]
+        
+        styled_df = df_filtered.style.apply(highlight_ridge_row, axis=1)
+        
         # Display the table
         st.write("**Comparative Table of Model Metrics:**")
         st.write(styled_df)
-       
-    if __name__ == "__main__":
-            # Button to display conclusion and table
-        if st.button("Conclusion"):
-            display_conclusion_and_table()
+        
+        # Display the conclusion
+        st.write("Considering the data in the comparative chart above, we can observe that for the test set the **Ridge Model** created the best result throughout all metrics of all models:")
+        st.write("It accurately explained 86.47% of the variance of the test set and also minimizes the error metrics to 0.4114 RMSE and 0.3048 MAE.")
+        st.write("This indicates that the Ridge model performs the best among the considered models.")
+    
+    st.markdown("#### Conclusion")
+    display_conclusion_and_table()
 
-if page == pages[4]:
+    
     from sklearn.model_selection import train_test_split
     from sklearn.linear_model import Ridge
     from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
@@ -886,3 +1124,84 @@ if page == pages[4]:
     st.write(f"These coefficients suggest that higher values of 'Log GDP per capita', 'Social support', 'Freedom to make life choices', and 'Generosity', and a positive correlation with happiness.")
     st.write(f"Policy makers can use these insights to focus on improving economic conditions, social support systems, and freedom for individuals, which are crucial factors contributing to happiness in societies.")
     st.write(f"Further analysis and policy interventions can aim to enhance these factors to promote overall well-being and happiness across different countries.")
+
+if page == pages[5]:
+    import streamlit as st
+    import pandas as pd
+    import numpy as np
+    from sklearn.linear_model import Ridge
+    from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+
+    # Example data statistics (based on the provided description)
+    data_stats = {
+        'Log GDP per capita': {'min': 6.635, 'max': np.ceil(11.648)},
+        'Social support': {'min': 0.290, 'max': np.ceil(0.987)},
+        'Healthy life expectancy at birth': {'min': 32.3, 'max': np.ceil(79.1)},
+        'Freedom to make life choices': {'min': 0.258, 'max': np.ceil(0.985)},
+        'Generosity': {'min': -0.335, 'max': np.ceil(0.698)},
+        'Perceptions of corruption': {'min': 0.000, 'max': np.ceil(0.897)}
+    }
+
+    # Adjust minimum values based on conditions
+    for param, stats in data_stats.items():
+        min_val = stats['min']
+        max_val = stats['max']
+        if min_val >= 0:
+            stats['min'] = 0
+        else:
+            stats['min'] = -max_val
+
+    st.header("Prediction")
+    st.markdown("""<style>h1 {color: #4629dd; font-size: 70px;}</style>""", unsafe_allow_html=True)
+    st.markdown("""<style>h2 {color: #440154ff; font-size: 50px}</style>""", unsafe_allow_html=True)
+    st.markdown("""<style>h3 {color: #27dce0; font-size: 30px;}</style>""", unsafe_allow_html=True)
+    st.markdown("""<style>body {background-color: #f4f4f4;}</style>""", unsafe_allow_html=True)
+
+    # Initialize alpha for Ridge regression
+    alpha = st.slider('Alpha', min_value=0.0, max_value=10.0, value=1.0, step=0.1)
+
+    # Initialize dictionary to store user-selected characteristics
+    caracteristiques = {}
+
+    # Create sliders for each parameter based on data_stats
+    for param, stats in data_stats.items():
+        min_val = float(stats['min'])  # Ensure min_val is float
+        max_val = float(stats['max'])  # Ensure max_val is float
+        default_val = (min_val + max_val) / 2  # Default value as midpoint of min and max
+        if min_val == max_val:
+            min_val = max_val - 0.1  # Adjust min_val slightly if min equals max
+        caracteristiques[param] = st.slider(param, min_val, max_val, default_val)
+
+    # Convert dictionary to DataFrame for model prediction
+    caracteristiques_df = pd.DataFrame([caracteristiques])
+
+    # Dummy example: Train Ridge regression model with selected alpha
+    # Replace with actual model training on your data
+    x_train_Mod = x_train_JB[['Log GDP per capita','Social support','Healthy life expectancy at birth','Freedom to make life choices',
+                              'Generosity','Perceptions of corruption']]
+    y_train_Mod= y_train_JB # Example target labels for demonstration
+
+
+    # Train Ridge regression model with selected alpha
+    ridge_model = Ridge(alpha=alpha, random_state=42)
+    ridge_model.fit(x_train_Mod, y_train_Mod)
+
+    # Predict the Life Ladder score
+    prediction = ridge_model.predict(caracteristiques_df)
+    prediction = np.round(prediction, 3)
+
+    # Display the prediction
+    st.markdown(f"<p style='font-size:24px; font-weight:bold;'>The Ladder Score would be: {prediction[0]}</p>", unsafe_allow_html=True)
+    
+    
+    # country_list = merged_df_happy_JB['Country name'].unique()
+    # selected_country = st.selectbox('Country name', country_list)
+    # caracteristiques['Country name'] = selected_country
+    
+    # ypoints = merged_df_happy_JB[merged_df_happy_JB['Country name']==selected_country].sort_values(by='year')
+    
+    # st.pyplot(ypoints['Life Ladder'], linestyle = 'dotted')
+    
+    
