@@ -13,6 +13,13 @@ The most interesting takeoffs from our analysis show the following:
   
 ---
 
+## What this project shows
+- Policy-relevant data analysis using Python and interactive Streamlit dashboards
+- Insights into factors driving happiness across countries
+- Clear, reproducible workflow with interactive visualizations for stakeholders
+
+---
+
 ### 📦 Requirements
 pandas
 matplotlib
