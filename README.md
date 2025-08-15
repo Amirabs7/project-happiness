@@ -1,7 +1,7 @@
 # 🌍 Project Happiness
 Welcome to the International Happiness Report Analysis :)
 
-HDiscover What Makes People Happy across nations through an interactive Streamlit dashboard.
+Discover What Makes People Happy across nations through an interactive Streamlit dashboard.
 In this analysis, the dataset we used is based on International world reports for the period between 2005 et 2021.
 
 ---
