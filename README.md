@@ -13,4 +13,26 @@ The most interesting takeoffs from our analysis show the following:
   
 ---
 
+### 📦 Requirements
+pandas
+matplotlib
+streamlit
+
+### 🛠 How to Reproduce
+
+Clone the repository
+
+git clone https://github.com/Amirabs7/HappinessReport.git
+cd HappinessReport
+
+
+### Install dependencies
+
+pip install -r requirements.txt
+
+
+### Run the app
+
+streamlit run app.py
+
 🚀 **[Click here to launch the app](https://project-happiness-w2uphaq4qnzt8sicjkw6ig.streamlit.app/)**  
