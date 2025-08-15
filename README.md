@@ -1,6 +1,16 @@
 # 🌍 Project Happiness
 Welcome to the International Happiness Report Analysis :)
 
+---
+
+## What this project shows
+- Policy-relevant data analysis using Python and interactive Streamlit dashboards
+- Insights into factors driving happiness across countries
+- Clear, reproducible workflow with interactive visualizations for stakeholders
+
+---
+  
+
 Discover What Makes People Happy across nations through an interactive Streamlit dashboard.
 In this analysis, the dataset we used is based on International world reports for the period between 2005 et 2021.
 
